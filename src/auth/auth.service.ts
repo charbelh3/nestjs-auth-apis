@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   Injectable,
+  NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { SignupDto } from './dtos/signup.dto';
@@ -12,6 +13,8 @@ import { LoginDto } from './dtos/login.dto';
 import { JwtService } from '@nestjs/jwt';
 import { RefreshToken } from './schemas/refresh-token.schema';
 import { v4 as uuidv4 } from 'uuid';
+import { nanoid } from 'nanoid';
+import { ResetToken } from './schemas/reset-token.schema';
 
 @Injectable()
 export class AuthService {
@@ -19,6 +22,8 @@ export class AuthService {
     @InjectModel(User.name) private UserModel: Model<User>,
     @InjectModel(RefreshToken.name)
     private RefreshTokenModel: Model<RefreshToken>,
+    @InjectModel(ResetToken.name)
+    private ResetTokenModel: Model<ResetToken>,
     private jwtService: JwtService,
   ) {}
 
@@ -65,6 +70,46 @@ export class AuthService {
     };
   }
 
+  async changePassword(userId, oldPassword: string, newPassword: string) {
+    //Find the user
+    const user = await this.UserModel.findById(userId);
+    if (!user) {
+      throw new NotFoundException('User not found...');
+    }
+
+    //Compare the old password with the password in DB
+    const passwordMatch = await bcrypt.compare(oldPassword, user.password);
+    if (!passwordMatch) {
+      throw new UnauthorizedException('Wrong credentials');
+    }
+
+    //Change user's password
+    const newHashedPassword = await bcrypt.hash(newPassword, 10);
+    user.password = newHashedPassword;
+    await user.save();
+  }
+
+  async forgotPassword(email: string) {
+    //Check that user exists
+    const user = await this.UserModel.findOne({ email });
+
+    if (user) {
+      //If user exists, generate password reset link
+      const expiryDate = new Date();
+      expiryDate.setHours(expiryDate.getHours() + 1);
+
+      const resetToken = nanoid(64);
+      await this.ResetTokenModel.create({
+        token: resetToken,
+        userId: user._id,
+        expiryDate
+      });
+      //TODO: Send the link to the user by email (using nodemailer/ SES / etc...)
+    }
+
+    return { message: 'If this user exists, they will receive an email' };
+  }
+
   async refreshTokens(refreshToken: string) {
     const token = await this.RefreshTokenModel.findOne({
       token: refreshToken,
@@ -78,7 +123,7 @@ export class AuthService {
   }
 
   async generateUserTokens(userId) {
-    const accessToken = this.jwtService.sign({ userId }, { expiresIn: '' });
+    const accessToken = this.jwtService.sign({ userId }, { expiresIn: '10h' });
     const refreshToken = uuidv4();
 
     await this.storeRefreshToken(refreshToken, userId);
