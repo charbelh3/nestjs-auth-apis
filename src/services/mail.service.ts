@@ -11,8 +11,8 @@ export class MailService {
       host: 'smtp.ethereal.email',
       port: 587,
       auth: {
-        user: 'selina.pagac@ethereal.email',
-        pass: 'gjzA9WYPtkVsbAvNge',
+        user: 'lilla.terry55@ethereal.email',
+        pass: 'yQQSg25MR1QwugbNnN',
       },
     });
   }
@@ -20,10 +20,9 @@ export class MailService {
   async sendPasswordResetEmail(to: string, token: string) {
     const resetLink = `http://yourapp.com/reset-password?token=${token}`;
     const mailOptions = {
-      from: '"Your App Name" <your-email@example.com>', // Replace with your app name and from address
+      from: 'Auth-backend service',
       to: to,
       subject: 'Password Reset Request',
-      //   text: `You requested a password reset. Click the link below to reset your password:\n\n${resetLink}`,
       html: `<p>You requested a password reset. Click the link below to reset your password:</p><p><a href="${resetLink}">Reset Password</a></p>`,
     };
 
